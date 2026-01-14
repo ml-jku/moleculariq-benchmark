@@ -1,0 +1,5 @@
+data/external/
+data/processed/
+data/intermediate/
+data/pubchem_raw_sdf/
+logs/*
