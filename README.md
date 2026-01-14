@@ -1,82 +1,122 @@
-# MolecularIQ Benchmark Submission Package
+# MolecularIQ Benchmark
 
-This folder contains everything needed to recreate the MolecularIQ benchmark that
-accompanies our anonymous ICLR submission.  The code assumes the user supplies the
-necessary source datasets (PubChem SDF shards and external benchmark SMILES).  Once
-placed in the documented locations the pipeline can be executed end-to-end without
-any additional dependencies outside this submission tree.
+A comprehensive benchmark dataset for evaluating large language models on molecular reasoning tasks, featuring count, index, and constraint generation challenges across diverse chemical properties.
 
-## Folder map
+![MolecularIQ benchmark statistics](assets/img/moleculariq_statistics.png)
 
-- `A_create_dataset_pools/`
-  - `1_collect_pubchem_data.py` extracts SMILES/IUPAC pairs from `data/pubchem_raw_sdf`.
-  - `2_collect_external_test_set_molecules.py` aggregates molecules from benchmark snapshots stored in `data/external/*.smi` and writes a merged pickle.
-  - `3_standardize_pubchem_mols_and_remove_external_test_mols.py` canonicalises the PubChem cache and removes overlaps with the external sets (falls back to the original list when everything would be filtered away).
-  - `4_create_train_test_pools.py` partitions the filtered molecules into train/easy/hard pools. LSH-based deduplication is used when `datasketch` is installed; otherwise a deterministic set difference fallback is applied.
-- `B_create_benchmark/`
-  - `A_compute_properties.py` evaluates every task-specific property for the hard pool and stores the results in `data/properties_new.pkl`. Multiprocessing and pandarallel are opt-in via `ENABLE_PANDARALLEL=1`.
-  - `generate_benchmark_dataset.py` samples count/index/constraint tasks and produces the final JSON dataset. All configuration happens via CLI flags; defaults are tuned for the shipped sample data.
-  - `solver/` contains the symbolic solvers and helper resources used by both the property computation and task generation stages.
-- `natural_language/` text templates and formatters for phrasing tasks in natural language.
-- `rewards/` reward functions used to verify constraint satisfaction.
-- `questions.py` registry of task definitions consumed by the generator.
-- `data/` (created at runtime) caches intermediate artefacts such as `properties_new.pkl` and `sample_tasks.json`.
+## Overview
 
-## Quick start (sample data)
+MolecularIQ is a benchmark specifically designed to measure the structural reasoning abilities of large language models on molecules. Unlike many chemistry evaluation sets that rely on literature labels or surrogate predictors, MolecularIQ focuses only on tasks whose correctness can be verified algorithmically from the molecular graph itself. This makes it possible to distinguish genuine structural understanding from memorization or correlation-based answers.
 
-All commands assume the repository root as the working directory:
+### Key characteristics of MolecularIQ
 
-```bash
-# 1. Build the molecule pools (requires local data sources)
-python src/submission/A_create_dataset_pools/1_collect_pubchem_data.py
-python src/submission/A_create_dataset_pools/2_collect_external_test_set_molecules.py
-python src/submission/A_create_dataset_pools/3_standardize_pubchem_mols_and_remove_external_test_mols.py
-python src/submission/A_create_dataset_pools/4_create_train_test_pools.py
+## Repository Structure
 
-# 2. Compute task properties for the hard pool
-python src/submission/B_create_benchmark/A_compute_properties.py
-
-# 3. Generate a compact benchmark (no constraint tasks, finishes in seconds)
-python src/submission/B_create_benchmark/generate_benchmark_dataset.py \
-  --pickle-path src/submission/B_create_benchmark/data/properties_new.pkl \
-  --output-path src/submission/B_create_benchmark/data/sample_tasks.json \
-  --n-samples-per-bin 1 --n-samples-per-category 0 --n-samples-multi 1
+```
+moleculariq-benchmark/
+├── src/                                # Source code
+│   ├── a_dataset_pools/               # Stage A: Dataset pool creation
+│   │   ├── 1_collect_pubchem_data.py
+│   │   ├── 2_collect_external_test_set_molecules.py
+│   │   ├── 3_standardize_pubchem_mols_and_remove_external_test_mols.py
+│   │   ├── 4_create_train_test_pools.py
+│   │   ├── 5_create_hard_test_pool_dataframe.py
+│   │   └── utils/                     # External test set utilities
+│   └── b_benchmark/                   # Stage B: Benchmark generation
+│       ├── compute_properties.py      # Compute ground truth properties
+│       ├── generate_benchmark_dataset.py  # Generate final dataset
+│       ├── solver/                    # Property computation solvers
+│       ├── natural_language/          # Question formatting
+│       ├── rewards/                   # Evaluation metrics
+│       └── questions.py               # Task definitions
+├── data/                              # Data artifacts (not tracked)
+│   ├── dataset_pools/                 # Molecule pools
+│   │   ├── external/                  # External benchmark molecules
+│   │   ├── intermediate/              # Pipeline intermediates
+│   │   ├── processed/                 # Processed datasets
+│   │   ├── pseudo_sdf/               # Sample SDF for testing
+│   │   └── pubchem_raw_sdf/          # Raw PubChem SDF files
+│   └── benchmark/                     # Generated benchmark data
+│       └── properties.pkl
+├── notebooks/                         # Analysis notebooks
+│   └── overview_created_data.ipynb   # Data creation walkthrough
+└── assets/                            # Documentation assets
+    └── moleculariq_statistics.pdf
 ```
 
-The final dataset will be written to
-`src/submission/B_create_benchmark/data/sample_tasks.json`, and all intermediate
-artefacts remain inside the submission folder.
+## Data Creation Pipeline
 
-## Using full datasets
+### Stage A: Dataset Pool Creation
 
-1. Download the relevant PubChem `*.sdf.gz` shards and place them under
-   `src/submission/A_create_dataset_pools/data/pubchem_raw_sdf/` (subdirectories are
-   supported).
-2. Place one SMILES-per-line text file for each external benchmark inside
-   `src/submission/A_create_dataset_pools/data/external/` using the filenames
-   referenced in `2_collect_external_test_set_molecules.py` (e.g.
-   `llasmol_test_set.smi`).
-3. Re-run the commands from the quick start section.  The outputs in
-   `data/intermediate`, `data/processed`, and `B_create_benchmark/data` are
-   overwritten automatically.
+1. **Collect PubChem Data** ([1_collect_pubchem_data.py](src/a_dataset_pools/1_collect_pubchem_data.py))
+   - Extract SMILES and IUPAC names from PubChem SDF files
+   - Filter molecules (carbon-containing, single-fragment)
 
-To speed up heavy runs you can enable optional parallel features:
+2. **Collect External Test Sets** ([2_collect_external_test_set_molecules.py](src/a_dataset_pools/2_collect_external_test_set_molecules.py))
+   - Aggregate molecules from LLaSMol, ChemDFM, Ether0, ChemIQ benchmarks
 
-- Set `ENABLE_PANDARALLEL=1` before calling
-  `A_compute_properties.py` if `pandarallel` is installed.
-- Install `datasketch` to re-enable MinHash-based filtering in
-  `4_create_train_test_pools.py`.
+3. **Standardize and Filter** ([3_standardize_pubchem_mols_and_remove_external_test_mols.py](src/a_dataset_pools/3_standardize_pubchem_mols_and_remove_external_test_mols.py))
+   - Canonicalize SMILES
+   - Remove molecules present in external benchmarks
 
-## Dependencies
+4. **Create Train/Test Pools** ([4_create_train_test_pools.py](src/a_dataset_pools/4_create_train_test_pools.py))
+   - Cluster molecules using MinHash LSH on Morgan fingerprints
+   - Split into: Training pool, Easy test set, Hard test set
 
-The scripts rely on standard scientific Python packages:
-`rdkit`, `numpy`, `pandas`, `datasets`, `tqdm`, and `huggingface_hub`.  Optional
-packages (`datasketch`, `pandarallel`) are detected automatically when present.
+5. **Create Hard Test Pool DataFrame** ([5_create_hard_test_pool_dataframe.py](src/a_dataset_pools/5_create_hard_test_pool_dataframe.py))
+   - Build structured dataframe with molecular complexity metrics
+
+### Stage B: Benchmark Generation
+
+1. **Compute Properties** ([compute_properties.py](src/b_benchmark/compute_properties.py))
+   - Calculate ground truth values for all chemical properties
+   - Uses symbolic solver for accurate property computation
+
+2. **Generate Benchmark Dataset** ([generate_benchmark_dataset.py](src/b_benchmark/generate_benchmark_dataset.py))
+   - Sample diverse datapoints across complexity dimensions
+   - Generate questions using natural language templates
+   - Create count, index, and constraint generation tasks
+   - Export to HuggingFace dataset format
+
+## Getting Started
+
+### Prerequisites
+
+```bash
+pip install rdkit pandas numpy tqdm datasets huggingface_hub
+```
+
+### Quick Start
+
+1. **Download PubChem SDF files** (optional - a pseudo SDF is included for testing):
+   ```bash
+   # Download from https://pubchem.ncbi.nlm.nih.gov/docs/downloads
+   # Place in data/dataset_pools/pubchem_raw_sdf/
+   ```
+
+2. **Run the data creation pipeline**:
+   ```bash
+   # Stage A: Create molecule pools
+   cd src/a_dataset_pools
+   python 1_collect_pubchem_data.py
+   python 2_collect_external_test_set_molecules.py
+   python 3_standardize_pubchem_mols_and_remove_external_test_mols.py
+   python 4_create_train_test_pools.py
+   python 5_create_hard_test_pool_dataframe.py
+
+   # Stage B: Generate benchmark
+   cd ../b_benchmark
+   python compute_properties.py
+   python generate_benchmark_dataset.py
+   ```
+
+3. **Explore the created data**:
+   ```bash
+   jupyter notebook notebooks/overview_created_data.ipynb
+   ```
 
 
-## Verification
+## License
 
-Running the quick start commands with the required inputs produces
-`sample_tasks.json` (or the specified output path) and stores every intermediate
-artefact under `src/submission`.  No external services are contacted unless you
-explicitly invoke `--push-to-hub`.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
