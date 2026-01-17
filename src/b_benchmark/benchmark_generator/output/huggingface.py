@@ -6,7 +6,7 @@ Creates standardized HuggingFace datasets from generated tasks.
 
 import json
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from datasets import Dataset, DatasetDict, Features, Value
 from rdkit import RDLogger
@@ -20,6 +20,157 @@ try:
     from huggingface_hub import HfApi
 except ImportError:
     HfApi = None
+
+
+def create_minimal_task(task: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Transform a raw task into the minimal schema format.
+
+    Args:
+        task: Raw task dict with all original fields
+
+    Returns:
+        Minimal task dict with clean schema
+    """
+    old_task_type = task.get("task_type", "")
+
+    # Map old task_type to new simplified task_type (count, index, generation)
+    if "count" in old_task_type:
+        new_task_type = "count"
+    elif "index" in old_task_type:
+        new_task_type = "index"
+    elif "constraint" in old_task_type or "generation" in old_task_type:
+        new_task_type = "generation"
+    else:
+        new_task_type = old_task_type
+
+    # Determine multi_task_load (1 for single, 2/3/5 for multi)
+    if old_task_type.startswith("single_"):
+        multi_task_load = 1
+    elif old_task_type.startswith("multi_"):
+        # For multi-constraint: use n_constraints
+        # For multi-count/index: use n_properties
+        multi_task_load = task.get("n_constraints") or task.get("n_properties") or 1
+    else:
+        multi_task_load = 1
+
+    # Convert target to JSON string if needed
+    target = task.get("target")
+    if target is not None:
+        target = json.dumps(target)
+
+    # Convert constraints to JSON string if needed
+    constraints = task.get("constraints")
+    if constraints is not None and not isinstance(constraints, str):
+        constraints = json.dumps(constraints)
+
+    # Features = the specific property categories (was supercategory)
+    features_val = task.get("supercategory")
+
+    # Build metadata dict (contains SMILES transformation info for count/index tasks)
+    if new_task_type != "generation":
+        metadata = {
+            "smiles": task.get("smiles"),  # Transformed SMILES used in question
+            "is_randomized": task.get("is_randomized", False),
+            "is_kekulized": task.get("is_kekulized", False),
+        }
+    else:
+        # For generation tasks, include prevalence information
+        metadata = {
+            "prevalence": task.get("prevalence"),
+            "n_satisfying_molecules": task.get("n_satisfying_molecules"),
+        }
+
+    return {
+        "uid": task.get("uid"),
+        "task_type": new_task_type,
+        "features": features_val,
+        "question": task.get("question"),
+        "target": target,  # For count/index tasks
+        "constraints": constraints,  # For generation tasks
+        "original_smiles": task.get("original_smiles"),  # Ground truth / canonical
+        "complexity_bin": task.get("complexity_bin"),
+        "multi_task_load": multi_task_load,
+        "metadata": json.dumps(metadata),  # JSON string with transformation info
+    }
+
+
+def create_ring_enumeration_tasks(
+    minimal_tasks: List[Dict[str, Any]],
+    seed: int,
+) -> Tuple[List[Dict[str, Any]], int, int]:
+    """
+    Create ring-enumerated versions of count/index tasks.
+
+    Only includes tasks where the SMILES has at least one ring. The ring closure
+    numbers are randomized (1-99) while keeping the molecule structure identical.
+    The enumerated SMILES is guaranteed to be different from the original.
+
+    Args:
+        minimal_tasks: List of minimal tasks (already transformed)
+        seed: Random seed for reproducibility
+
+    Returns:
+        Tuple of (ring_enum_tasks, skipped_no_rings, skipped_enum_failed)
+    """
+    rng = random.Random(seed)
+    all_ring_enum_tasks = []
+    total_skipped_no_rings = 0
+    total_skipped_enum_failed = 0
+
+    # Process count and index tasks (generation tasks don't have input SMILES)
+    for task in minimal_tasks:
+        task_type = task.get("task_type")
+        if task_type not in ["count", "index"]:
+            continue
+
+        # Get the SMILES from metadata
+        metadata = json.loads(task.get("metadata", "{}"))
+        smiles = metadata.get("smiles")
+
+        if not smiles:
+            continue
+
+        # Check if SMILES has rings
+        if not has_rings(smiles):
+            total_skipped_no_rings += 1
+            continue
+
+        # Enumerate rings (ensures result is different from original)
+        # Retry multiple times to maximize success rate
+        max_retries = 10
+        enumerated_smiles = None
+        ring_mapping = None
+        for _ in range(max_retries):
+            enumerated_smiles, ring_mapping = enumerate_rings_in_smiles(smiles, rng)
+            if enumerated_smiles is not None:
+                break
+
+        if enumerated_smiles is None:
+            total_skipped_enum_failed += 1
+            continue
+
+        # Create new task with enumerated SMILES
+        new_task = task.copy()
+
+        # Replace SMILES in question text
+        original_question = task["question"]
+        new_question = original_question.replace(smiles, enumerated_smiles)
+        new_task["question"] = new_question
+
+        # Update metadata with ring mapping info
+        new_metadata = metadata.copy()
+        new_metadata["smiles"] = enumerated_smiles
+        new_metadata["ring_mapping"] = ring_mapping
+        new_metadata["original_ring_smiles"] = smiles
+        new_task["metadata"] = json.dumps(new_metadata)
+
+        # Generate new UID for ring enumerated task
+        new_task["uid"] = f"{task['uid']}_ring_enum"
+
+        all_ring_enum_tasks.append(new_task)
+
+    return all_ring_enum_tasks, total_skipped_no_rings, total_skipped_enum_failed
 
 
 def _create_ring_enumeration_split(
@@ -42,62 +193,15 @@ def _create_ring_enumeration_split(
     Returns:
         Dataset with ring-enumerated tasks, or None if no tasks qualify
     """
-    rng = random.Random(seed)
-    all_ring_enum_tasks = []
-    total_skipped_no_rings = 0
-    total_skipped_enum_failed = 0
-
-    # Process count and index tasks (generation tasks don't have input SMILES)
+    # Collect all count and index tasks
+    all_tasks = []
     for task_type in ["count", "index"]:
-        if task_type not in task_groups:
-            continue
+        if task_type in task_groups:
+            all_tasks.extend(task_groups[task_type])
 
-        for task in task_groups[task_type]:
-            # Get the SMILES from metadata
-            metadata = json.loads(task.get("metadata", "{}"))
-            smiles = metadata.get("smiles")
-
-            if not smiles:
-                continue
-
-            # Check if SMILES has rings
-            if not has_rings(smiles):
-                total_skipped_no_rings += 1
-                continue
-
-            # Enumerate rings (ensures result is different from original)
-            # Retry multiple times to maximize success rate
-            max_retries = 10
-            enumerated_smiles = None
-            ring_mapping = None
-            for _ in range(max_retries):
-                enumerated_smiles, ring_mapping = enumerate_rings_in_smiles(smiles, rng)
-                if enumerated_smiles is not None:
-                    break
-
-            if enumerated_smiles is None:
-                total_skipped_enum_failed += 1
-                continue
-
-            # Create new task with enumerated SMILES
-            new_task = task.copy()
-
-            # Replace SMILES in question text
-            original_question = task["question"]
-            new_question = original_question.replace(smiles, enumerated_smiles)
-            new_task["question"] = new_question
-
-            # Update metadata with ring mapping info
-            new_metadata = metadata.copy()
-            new_metadata["smiles"] = enumerated_smiles
-            new_metadata["ring_mapping"] = ring_mapping
-            new_metadata["original_ring_smiles"] = smiles
-            new_task["metadata"] = json.dumps(new_metadata)
-
-            # Generate new UID for ring enumerated task
-            new_task["uid"] = f"{task['uid']}_ring_enum"
-
-            all_ring_enum_tasks.append(new_task)
+    all_ring_enum_tasks, total_skipped_no_rings, total_skipped_enum_failed = (
+        create_ring_enumeration_tasks(all_tasks, seed)
+    )
 
     if all_ring_enum_tasks:
         print(
@@ -112,7 +216,7 @@ def _create_ring_enumeration_split(
 
 def create_huggingface_dataset(
     all_tasks: List[Dict[str, Any]],
-    dataset_name: str = "tschouis/moleculariq",
+    dataset_name: str = "moleculariq",
     push_to_hub: bool = False,
     private: bool = True,
     ring_enumeration: bool = False,
@@ -140,70 +244,7 @@ def create_huggingface_dataset(
 
     # Create minimal tasks with clean schema
     print("  Creating minimal task records...")
-    minimal_tasks = []
-    for task in all_tasks:
-        old_task_type = task.get("task_type", "")
-
-        # Map old task_type to new simplified task_type (count, index, generation)
-        if "count" in old_task_type:
-            new_task_type = "count"
-        elif "index" in old_task_type:
-            new_task_type = "index"
-        elif "constraint" in old_task_type or "generation" in old_task_type:
-            new_task_type = "generation"
-        else:
-            new_task_type = old_task_type
-
-        # Determine multi_task_load (1 for single, 2/3/5 for multi)
-        if old_task_type.startswith("single_"):
-            multi_task_load = 1
-        elif old_task_type.startswith("multi_"):
-            # For multi-constraint: use n_constraints
-            # For multi-count/index: use n_properties
-            multi_task_load = task.get("n_constraints") or task.get("n_properties") or 1
-        else:
-            multi_task_load = 1
-
-        # Convert target to JSON string if needed
-        target = task.get("target")
-        if target is not None:
-            target = json.dumps(target)
-
-        # Convert constraints to JSON string if needed
-        constraints = task.get("constraints")
-        if constraints is not None and not isinstance(constraints, str):
-            constraints = json.dumps(constraints)
-
-        # Features = the specific property categories (was supercategory)
-        features_val = task.get("supercategory")
-
-        # Build metadata dict (contains SMILES transformation info for count/index tasks)
-        if new_task_type != "generation":
-            metadata = {
-                "smiles": task.get("smiles"),  # Transformed SMILES used in question
-                "is_randomized": task.get("is_randomized", False),
-                "is_kekulized": task.get("is_kekulized", False),
-            }
-        else:
-            # For generation tasks, include prevalence information
-            metadata = {
-                "prevalence": task.get("prevalence"),
-                "n_satisfying_molecules": task.get("n_satisfying_molecules"),
-            }
-
-        minimal_task = {
-            "uid": task.get("uid"),
-            "task_type": new_task_type,
-            "features": features_val,
-            "question": task.get("question"),
-            "target": target,  # For count/index tasks
-            "constraints": constraints,  # For generation tasks
-            "original_smiles": task.get("original_smiles"),  # Ground truth / canonical
-            "complexity_bin": task.get("complexity_bin"),
-            "multi_task_load": multi_task_load,
-            "metadata": json.dumps(metadata),  # JSON string with transformation info
-        }
-        minimal_tasks.append(minimal_task)
+    minimal_tasks = [create_minimal_task(task) for task in all_tasks]
 
     # Define minimal features schema
     schema = Features({
@@ -265,9 +306,7 @@ def create_huggingface_dataset(
                 "huggingface-hub is required for pushing to hub. "
                 "Install with: pip install huggingface-hub"
             )
-        api = HfApi()
-        user_info = api.whoami()
-        print(f"\nPushing to HuggingFace Hub as {user_info['name']}...")
+        print("\nPushing to HuggingFace Hub...")
 
         dataset.push_to_hub(
             dataset_name,

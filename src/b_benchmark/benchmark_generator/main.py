@@ -6,10 +6,10 @@ This is the single entry point for generating the complete benchmark dataset.
 It uses the superior multi-constraint logic from the turbo generator.
 
 Usage:
-    python -m src.B_create_benchmark.benchmark_generator.main --help
+    python -m src.b_benchmark.benchmark_generator.main --help
 
 Example:
-    python -m src.B_create_benchmark.benchmark_generator.main \
+    python -m src.b_benchmark.benchmark_generator.main \
         --pickle-path /path/to/properties.pkl \
         --output-path /path/to/output.json \
         --save-local /path/to/hf_dataset \
@@ -17,16 +17,14 @@ Example:
 """
 
 import argparse
-import json
 import random
-from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from B_create_benchmark.task_lineage import UIDGenerator, PropertyTaskMapping
+from .lineage import UIDGenerator, PropertyTaskMapping
 
 from .config import BenchmarkConfig
 from .tasks.single_count_index import generate_paired_single_tasks
@@ -34,6 +32,7 @@ from .tasks.multi_count_index import generate_paired_multi_tasks
 from .tasks.single_constraint import generate_single_constraint_tasks
 from .tasks.multi_constraint import generate_multi_constraint_tasks
 from .output.huggingface import create_huggingface_dataset
+from .output.json_output import save_benchmark_json
 from .output.lineage import export_lineage
 
 
@@ -268,7 +267,7 @@ def main():
     parser.add_argument(
         "--pickle-path",
         type=str,
-        default="/system/user/publicdata/chemical_reasoning/moleculariq/properties_new.pkl",
+        default="data/benchmark/properties.pkl",
         help="Path to properties pickle file",
     )
 
@@ -326,7 +325,7 @@ def main():
     parser.add_argument(
         "--dataset-name",
         type=str,
-        default="tschouis/moleculariq_benchmark",
+        default="moleculariq",
         help="HuggingFace dataset name",
     )
     parser.add_argument(
@@ -432,27 +431,26 @@ def main():
     # Create config from args
     config = BenchmarkConfig.from_cli_args(args)
 
-    # Set output path if not provided
-    if config.output_path is None:
-        config.output_path = str(Path(__file__).parent.parent / "benchmark_tasks.json")
-
     # Generate dataset
     all_tasks = generate_benchmark_dataset(config)
 
     # Print statistics
     print_statistics(all_tasks)
 
-    # Save JSON
-    print(f"\nSaving {len(all_tasks)} tasks to {config.output_path}")
-    with open(config.output_path, "w") as f:
-        json.dump(all_tasks, f, indent=2)
+    # Save JSON with minimal schema
+    save_benchmark_json(
+        all_tasks=all_tasks,
+        output_path=config.output_path,
+        ring_enumeration=config.ring_enumeration,
+        seed=config.seed,
+    )
 
     # Save lineage
-    if args.lineage_output:
-        export_lineage(all_tasks, args.lineage_output)
+    if config.lineage_output:
+        export_lineage(all_tasks, config.lineage_output)
 
     # Create HuggingFace dataset
-    if args.push_to_hub or args.save_local:
+    if args.push_to_hub or config.save_local:
         dataset = create_huggingface_dataset(
             all_tasks=all_tasks,
             dataset_name=args.dataset_name,
@@ -462,9 +460,9 @@ def main():
             seed=config.seed,
         )
 
-        if args.save_local:
-            dataset.save_to_disk(args.save_local)
-            print(f"\nDataset saved locally to: {args.save_local}")
+        if config.save_local:
+            dataset.save_to_disk(config.save_local)
+            print(f"\nDataset saved locally to: {config.save_local}")
 
     # Final summary
     print("\n" + "=" * 80)
@@ -472,11 +470,15 @@ def main():
     print("=" * 80)
     print(f"Total tasks generated: {len(all_tasks)}")
     print(f"JSON file: {config.output_path}")
+    if config.lineage_output:
+        print(f"Lineage file: {config.lineage_output}")
+    if config.save_local:
+        print(f"HuggingFace dataset (local): {config.save_local}")
     if args.push_to_hub:
-        print(f"HuggingFace dataset: {args.dataset_name}")
+        print(f"HuggingFace dataset (hub): {args.dataset_name}")
 
 
 if __name__ == "__main__":
     main()
 
-#python -m src.B_create_benchmark.benchmark_generator.main --output-path /system/user/publicwork/bartmann/chemical_reasoning/tests/test_commit_data
+#python -m src.b_benchmark.benchmark_generator.main --output-path /tmp/test_benchmark.json
