@@ -9,5 +9,11 @@ Usage:
 """
 
 from .config import BenchmarkConfig
+from .lineage import UIDGenerator, PropertyTaskMapping, TaskLineageBuilder
 
-__all__ = ["BenchmarkConfig"]
+__all__ = [
+    "BenchmarkConfig",
+    "UIDGenerator",
+    "PropertyTaskMapping",
+    "TaskLineageBuilder",
+]

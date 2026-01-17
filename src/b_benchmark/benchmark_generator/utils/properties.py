@@ -7,14 +7,14 @@ from typing import Any, List
 import numpy as np
 import pandas as pd
 
-# Import from existing codebase
-from B_create_SFT_data.column_category_map import (
+# Import from src.b_benchmark module
+from src.b_benchmark.column_category_map import (
     COUNT_MAP,
     INDEX_MAP,
     CONSTRAINT_MAP,
     COUNT_TO_INDEX_MAP,
 )
-from natural_language.mappings import COUNT_MAPPINGS, INDEX_MAPPINGS
+from src.b_benchmark.natural_language.mappings import COUNT_MAPPINGS, INDEX_MAPPINGS
 
 
 def to_python_scalar(value: Any) -> Any:

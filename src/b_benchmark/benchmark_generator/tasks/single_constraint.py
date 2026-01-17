@@ -11,10 +11,10 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from questions import TASKS
-from natural_language.formatter import format_constraint
-from B_create_SFT_data.column_category_map import COUNT_MAP, CONSTRAINT_MAP
-from B_create_benchmark.task_lineage import UIDGenerator
+from src.b_benchmark.questions import TASKS
+from src.b_benchmark.natural_language.formatter import format_constraint
+from src.b_benchmark.column_category_map import COUNT_MAP, CONSTRAINT_MAP
+from ..lineage import UIDGenerator
 
 from ..utils.smiles import transform_smiles
 from ..utils.properties import get_property_category, to_python_scalar

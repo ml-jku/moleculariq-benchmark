@@ -3,7 +3,6 @@ Configuration dataclass for benchmark dataset generation.
 """
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Dict, List, Optional
 
 
@@ -12,7 +11,7 @@ class BenchmarkConfig:
     """Configuration for benchmark dataset generation."""
 
     # Data source
-    pickle_path: str = "/system/user/publicdata/chemical_reasoning/moleculariq/properties_new.pkl"
+    pickle_path: str = "data/benchmark/properties.pkl"
 
     # Output paths
     output_path: Optional[str] = None
@@ -21,7 +20,7 @@ class BenchmarkConfig:
 
     # HuggingFace options
     push_to_hub: bool = False
-    dataset_name: str = "tschouis/moleculariq_benchmark"
+    dataset_name: str = "moleculariq"
     public: bool = False
 
     # Sampling parameters
@@ -93,9 +92,15 @@ class BenchmarkConfig:
 
         # Set default output path if not provided
         if self.output_path is None:
-            self.output_path = str(
-                Path(__file__).parent.parent / "benchmark_tasks.json"
-            )
+            self.output_path = "data/benchmark/benchmark_tasks.json"
+
+        # Set default save_local path if not provided
+        if self.save_local is None:
+            self.save_local = "data/benchmark/hf_dataset"
+
+        # Set default lineage output path if not provided
+        if self.lineage_output is None:
+            self.lineage_output = "data/benchmark/lineage.json"
 
         # Ultra-hard mode adjustments
         if self.ultra_hard:

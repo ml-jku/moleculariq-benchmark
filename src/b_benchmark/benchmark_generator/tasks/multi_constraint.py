@@ -19,9 +19,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from questions import TASKS
-from natural_language.formatter import format_constraint
-from B_create_benchmark.task_lineage import UIDGenerator
+from src.b_benchmark.questions import TASKS
+from src.b_benchmark.natural_language.formatter import format_constraint
+from ..lineage import UIDGenerator
 
 from ..utils.smiles import canonicalize_smiles
 from ..utils.properties import get_property_category, to_python_scalar

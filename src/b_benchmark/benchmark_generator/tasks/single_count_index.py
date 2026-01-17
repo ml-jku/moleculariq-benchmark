@@ -10,10 +10,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from tqdm import tqdm
 
-from questions import TASKS
-from natural_language.formatter import format_count_query, format_index_query
-from B_create_SFT_data.column_category_map import COUNT_MAP, COUNT_TO_INDEX_MAP
-from B_create_benchmark.task_lineage import UIDGenerator, PropertyTaskMapping
+from src.b_benchmark.questions import TASKS
+from src.b_benchmark.natural_language.formatter import format_count_query, format_index_query
+from src.b_benchmark.column_category_map import COUNT_MAP, COUNT_TO_INDEX_MAP
+from ..lineage import UIDGenerator, PropertyTaskMapping
 
 from ..utils.smiles import transform_smiles
 from ..utils.properties import (

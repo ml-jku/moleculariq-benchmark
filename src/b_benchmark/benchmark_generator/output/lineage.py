@@ -6,7 +6,7 @@ Exports task lineage information for tracking parent-child relationships.
 
 from typing import Any, Dict, List
 
-from B_create_benchmark.task_lineage import TaskLineageBuilder, build_task_lineage_from_tasks
+from ..lineage import TaskLineageBuilder, build_task_lineage_from_tasks
 
 
 def export_lineage(

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from rewards.constraint_reward import multi_constraint_generation_reward
+from src.b_benchmark.rewards.constraint_reward import multi_constraint_generation_reward
 
 
 def validate_constraints(smiles: str, constraints: List[Dict[str, Any]]) -> bool:
