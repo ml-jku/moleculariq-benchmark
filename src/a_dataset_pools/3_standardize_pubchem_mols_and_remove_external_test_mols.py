@@ -2,17 +2,14 @@
 Canonicalise PubChem molecules and remove overlaps with external benchmarks.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, List, Tuple
 
 import pickle
 
 from rdkit import Chem
 from rdkit import RDLogger
-from tqdm import tqdm
 
 
 SUBMISSION_ROOT = Path(__file__).resolve().parent
