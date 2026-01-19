@@ -132,6 +132,19 @@ python generate_benchmark_dataset.py
 jupyter notebook notebooks/overview_created_data.ipynb
 ```
 
+## 👨‍👧‍👦 MolecularIQ Family
+
+This package is part of the MolecularIQ ecosystem:
+
+| Repository | Purpose | 
+|------------|---------|
+| **[moleculariq](https://github.com/ml-jku/moleculariq)** | Central hub for the MolecularIQ benchmark ecosystem|
+| **[moleculariq-leaderboard](https://huggingface.co/spaces/ml-jku/molecularIQ_leaderboard)** | Leaderboard: HuggingFace space, displays results, handles submissions |
+|  **[moleculariq-core](https://github.com/ml-jku/moleculariq-core)** | Shared library providing core functionality, e.g. symbolic verifiers and question formatting | 
+| 📍 **[moleculariq-benchmark](#moleculariq-benchmark-dataset)** | Dataset creation: task definitions, symbolic verifiers implementations, question generator| 
+| **[moleculariq-eval](https://github.com/ml-jku/moleculariq-eval)** | Evaluation code: integration with lm-eval-harness, model configs, reward functions, extraction functions, and system prompts|
+|**[moleculariqd](https://github.com/ml-jku/moleculariqd)**| Dynamic MolecularIQ version: includes molecule pools from which questions/samples can be created and evaluated on the fly| 
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

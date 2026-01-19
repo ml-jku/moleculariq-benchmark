@@ -10,13 +10,9 @@ Note: Since the pooled molecules stem from snapshots of existing benchmarks, we 
 guarantee that all molecules of updated benchmark versions are included.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List
 
-import logging
 import pickle
 
 from utils.llasmol_testset import get_llasmol_test_set
