@@ -11,10 +11,12 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from src.b_benchmark.questions import TASKS
-from src.b_benchmark.natural_language.formatter import format_constraint
-from src.b_benchmark.column_category_map import COUNT_MAP, CONSTRAINT_MAP
+from moleculariq_core import TASKS, COUNT_MAP, CONSTRAINT_MAP, NaturalLanguageFormatter
 from ..lineage import UIDGenerator
+
+# Create formatter instance for formatting constraints
+_formatter = NaturalLanguageFormatter()
+format_constraint = _formatter.format_constraint
 
 from ..utils.smiles import transform_smiles
 from ..utils.properties import get_property_category, to_python_scalar

@@ -18,22 +18,32 @@ Example:
 
 import argparse
 import random
+import sys
+from pathlib import Path
 from typing import Any, Dict, List
+
+# Add repo root to path so imports work from any location
+SUBMISSION_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = SUBMISSION_ROOT.parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from .lineage import UIDGenerator, PropertyTaskMapping
+from src.b_benchmark.benchmark_generator.lineage import UIDGenerator, PropertyTaskMapping
+from src.b_benchmark.benchmark_generator.config import BenchmarkConfig
+from src.b_benchmark.benchmark_generator.tasks.single_count_index import generate_paired_single_tasks
+from src.b_benchmark.benchmark_generator.tasks.multi_count_index import generate_paired_multi_tasks
+from src.b_benchmark.benchmark_generator.tasks.single_constraint import generate_single_constraint_tasks
+from src.b_benchmark.benchmark_generator.tasks.multi_constraint import generate_multi_constraint_tasks
+from src.b_benchmark.benchmark_generator.output.huggingface import create_huggingface_dataset
+from src.b_benchmark.benchmark_generator.output.json_output import save_benchmark_json
+from src.b_benchmark.benchmark_generator.output.lineage import export_lineage
 
-from .config import BenchmarkConfig
-from .tasks.single_count_index import generate_paired_single_tasks
-from .tasks.multi_count_index import generate_paired_multi_tasks
-from .tasks.single_constraint import generate_single_constraint_tasks
-from .tasks.multi_constraint import generate_multi_constraint_tasks
-from .output.huggingface import create_huggingface_dataset
-from .output.json_output import save_benchmark_json
-from .output.lineage import export_lineage
+#---------------------------------------------------------------------------------------
+BENCHMARK_DIR = REPO_ROOT / "data" / "benchmark"
+#---------------------------------------------------------------------------------------
 
 
 def load_and_prepare_data(pickle_path: str) -> pd.DataFrame:
@@ -267,7 +277,7 @@ def main():
     parser.add_argument(
         "--pickle-path",
         type=str,
-        default="data/benchmark/properties.pkl",
+        default=str(BENCHMARK_DIR / "properties.pkl"),
         help="Path to properties pickle file",
     )
 
@@ -300,7 +310,7 @@ def main():
     parser.add_argument(
         "--output-path",
         type=str,
-        default=None,
+        default=str(BENCHMARK_DIR / "benchmark_dataset.json"),
         help="Path for output JSON file",
     )
     parser.add_argument(
@@ -319,7 +329,8 @@ def main():
     # HuggingFace options
     parser.add_argument(
         "--push-to-hub",
-        action="store_true",
+        type=bool,
+        default=False,
         help="Push dataset to HuggingFace Hub",
     )
     parser.add_argument(
@@ -480,5 +491,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-#python -m src.b_benchmark.benchmark_generator.main --output-path /tmp/test_benchmark.json

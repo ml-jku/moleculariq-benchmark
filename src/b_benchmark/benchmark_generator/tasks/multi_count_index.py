@@ -10,10 +10,13 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from tqdm import tqdm
 
-from src.b_benchmark.questions import TASKS
-from src.b_benchmark.natural_language.formatter import format_count_query, format_index_query
-from src.b_benchmark.column_category_map import COUNT_TO_INDEX_MAP
+from moleculariq_core import TASKS, COUNT_TO_INDEX_MAP, NaturalLanguageFormatter
 from ..lineage import UIDGenerator, PropertyTaskMapping
+
+# Create formatter instance for formatting queries
+_formatter = NaturalLanguageFormatter()
+format_count_query = _formatter.format_count_query
+format_index_query = _formatter.format_index_query
 
 from ..utils.smiles import transform_smiles
 from ..utils.properties import (

@@ -7,14 +7,14 @@ from typing import Any, List
 import numpy as np
 import pandas as pd
 
-# Import from src.b_benchmark module
-from src.b_benchmark.column_category_map import (
+from moleculariq_core import (
     COUNT_MAP,
     INDEX_MAP,
     CONSTRAINT_MAP,
     COUNT_TO_INDEX_MAP,
+    COUNT_MAPPINGS,
+    INDEX_MAPPINGS,
 )
-from src.b_benchmark.natural_language.mappings import COUNT_MAPPINGS, INDEX_MAPPINGS
 
 
 def to_python_scalar(value: Any) -> Any:

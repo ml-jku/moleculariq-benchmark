@@ -90,17 +90,9 @@ class BenchmarkConfig:
                 f"got {self.multi_constraint_variants}"
             )
 
-        # Set default output path if not provided
-        if self.output_path is None:
-            self.output_path = "data/benchmark/benchmark_tasks.json"
-
-        # Set default save_local path if not provided
-        if self.save_local is None:
-            self.save_local = "data/benchmark/hf_dataset"
-
-        # Set default lineage output path if not provided
-        if self.lineage_output is None:
-            self.lineage_output = "data/benchmark/lineage.json"
+        # Note: Default paths are set in main.py using BENCHMARK_DIR
+        # to ensure absolute paths work regardless of current working directory.
+        # save_local and lineage_output are optional - only created if specified.
 
         # Ultra-hard mode adjustments
         if self.ultra_hard:
