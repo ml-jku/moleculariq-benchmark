@@ -5,7 +5,7 @@
 **A comprehensive benchmark for evaluating large language models on molecular reasoning tasks**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![RDKit](https://img.shields.io/badge/Built%20with-RDKit-3838ff.svg)](https://www.rdkit.org/)
 
 <p align="center">
@@ -34,27 +34,31 @@ moleculariq-benchmark/
 │   │   ├── 3_standardize_pubchem_mols_and_remove_external_test_mols.py
 │   │   ├── 4_create_train_test_pools.py
 │   │   ├── 5_create_hard_test_pool_dataframe.py
-│   │   └── utils/                         # External test set utilities
+│   │   └── utils/                        # External test set utilities
 │   └── 📂 b_benchmark/                   # Stage B: Benchmark generation
-│       ├── compute_properties.py          # Compute ground truth properties
-│       ├── generate_benchmark_dataset.py  # Generate final dataset
-│       ├── solver/                        # Property computation solvers
-│       ├── natural_language/              # Question formatting
-│       ├── rewards/                       # Evaluation metrics
-│       └── questions.py                   # Task definitions
+│       ├── 1_compute_properties.py       # Compute ground truth properties
+│       ├── 2_create_benchmark.py         # Generate final benchmark dataset
+│       ├── task_names.py                 # Task name definitions
+│       └── benchmark_generator/          # Generation logic (uses moleculariq-core)
+│           ├── main.py                   # CLI entry point
+│           ├── config.py                 # Configuration
+│           ├── tasks/                    # Task generators (count, index, constraint)
+│           ├── core/                     # Sampling, scoring, validation
+│           └── output/                   # JSON & HuggingFace export
 ├── 📂 data/                              # Data artifacts (not tracked)
-│   ├── dataset_pools/                     # Molecule pools
-│   │   ├── external/                      # External benchmark molecules
-│   │   ├── intermediate/                  # Pipeline intermediates
-│   │   ├── processed/                     # Processed datasets
+│   ├── dataset_pools/                    # Molecule pools
+│   │   ├── external/                     # External benchmark molecules
+│   │   ├── intermediate/                 # Pipeline intermediates
+│   │   ├── processed/                    # Processed datasets
 │   │   ├── pseudo_sdf/                   # Sample SDF for testing
 │   │   └── pubchem_raw_sdf/              # Raw PubChem SDF files
-│   └── benchmark/                         # Generated benchmark data
-│       └── properties.pkl
+│   └── benchmark/                        # Generated benchmark data
+│       ├── properties.pkl                # Precomputed molecular properties
+│       └── benchmark_dataset.json        # Final benchmark dataset
 ├── 📓 notebooks/                         # Analysis notebooks
 │   └── overview_created_data.ipynb       # Data creation walkthrough
 └── 📊 assets/                            # Documentation assets
-    └── moleculariq_statistics.pdf
+    └── moleculariq_statistics.png
 ```
 
 ## 🔄 Data Creation Pipeline
@@ -81,15 +85,15 @@ moleculariq-benchmark/
 
 ### Stage B: Benchmark Generation
 
-**1. Compute Properties** → [`compute_properties.py`](src/b_benchmark/compute_properties.py)
-   - Calculate ground truth values for all chemical properties
-   - Uses symbolic solver for accurate property computation
+**1. Compute Properties** → [`1_compute_properties.py`](src/b_benchmark/1_compute_properties.py)
+   - Calculate ground truth values for all molecular properties
+   - Uses `SymbolicSolver` from [moleculariq-core](https://github.com/ml-jku/moleculariq-core) for accurate computation
 
-**2. Generate Benchmark Dataset** → [`generate_benchmark_dataset.py`](src/b_benchmark/generate_benchmark_dataset.py)
+**2. Create Benchmark** → [`2_create_benchmark.py`](src/b_benchmark/2_create_benchmark.py)
    - Sample diverse datapoints across complexity dimensions
    - Generate questions using natural language templates
-   - Create count, index, and constraint generation tasks
-   - Export to HuggingFace dataset format
+   - Create single/multi count, index, and constraint generation tasks
+   - Export to JSON and HuggingFace dataset formats
 
 
 ## 🚀 Getting Started
@@ -97,7 +101,12 @@ moleculariq-benchmark/
 ### Prerequisites
 
 ```bash
-pip install rdkit pandas numpy tqdm datasets huggingface_hub
+# Install moleculariq-core
+pip install git+https://github.com/ml-jku/moleculariq-core.git
+
+# Then install this package
+pip install .  
+# or pip install -e . for development
 ```
 
 ### Quick Start
@@ -112,18 +121,16 @@ pip install rdkit pandas numpy tqdm datasets huggingface_hub
 #### 2. Run the data creation pipeline
 
 ```bash
-# Stage A: Create molecule pools
-cd src/a_dataset_pools
-python 1_collect_pubchem_data.py
-python 2_collect_external_test_set_molecules.py
-python 3_standardize_pubchem_mols_and_remove_external_test_mols.py
-python 4_create_train_test_pools.py
-python 5_create_hard_test_pool_dataframe.py
+# Stage A: Create molecule pools (run from repo root)
+python src/a_dataset_pools/1_collect_pubchem_data.py
+python src/a_dataset_pools/2_collect_external_test_set_molecules.py
+python src/a_dataset_pools/3_standardize_pubchem_mols_and_remove_external_test_mols.py
+python src/a_dataset_pools/4_create_train_test_pools.py
+python src/a_dataset_pools/5_create_hard_test_pool_dataframe.py
 
-# Stage B: Generate benchmark
-cd ../b_benchmark
-python compute_properties.py
-python generate_benchmark_dataset.py
+# Stage B: Generate benchmark (run from repo root)
+python src/b_benchmark/1_compute_properties.py
+python src/b_benchmark/2_create_benchmark.py
 ```
 
 #### 3. Explore the created data
