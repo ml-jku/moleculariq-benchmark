@@ -87,7 +87,7 @@ moleculariq-benchmark/
 
 **1. Compute Properties** → [`1_compute_properties.py`](src/b_benchmark/1_compute_properties.py)
    - Calculate ground truth values for all molecular properties
-   - Uses `SymbolicSolver` from [moleculariq-core](https://github.com/ml-jku/moleculariq-core) for accurate computation
+   - Uses `SymbolicSolver` from [moleculariq-core](https://anonymous.4open.science/r/moleculariq-core-2F02/README.md) for accurate computation
 
 **2. Create Benchmark** → [`2_create_benchmark.py`](src/b_benchmark/2_create_benchmark.py)
    - Sample diverse datapoints across complexity dimensions
