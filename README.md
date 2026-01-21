@@ -145,11 +145,11 @@ This package is part of the MolecularIQ ecosystem:
 
 | Repository | Purpose | 
 |------------|---------|
-| **[moleculariq](https://github.com/ml-jku/moleculariq)** | Central hub for the MolecularIQ benchmark ecosystem|
-| **[moleculariq-leaderboard](https://huggingface.co/spaces/ml-jku/molecularIQ_leaderboard)** | Leaderboard: HuggingFace space, displays results, handles submissions |
-|  **[moleculariq-core](https://github.com/ml-jku/moleculariq-core)** | MolecularIQD and shared library providing core functionality, e.g. symbolic verifiers and question formatting | 
-| 📍 **[moleculariq-benchmark](#moleculariq-benchmark-dataset)** | Dataset creation: task definitions, symbolic verifiers implementations, question generator| 
-| **[moleculariq-eval](https://github.com/ml-jku/moleculariq-eval)** | Evaluation code: integration with lm-eval-harness, model configs, reward functions, extraction functions, and system prompts|
+| **[moleculariq](https://anonymous.4open.science/r/moleculariq-EE40/README.md)** | Central hub for the MolecularIQ benchmark ecosystem|
+| **moleculariq-leaderboard** | Leaderboard: HuggingFace space, displays results, handles submissions; please see supplementary material |
+|  **[moleculariq-core](https://anonymous.4open.science/r/moleculariq-core-2F02/README.md)** | MolecularIQD and shared library providing core functionality, e.g. symbolic verifiers and question formatting | 
+| 📍 **[moleculariq-benchmark](https://anonymous.4open.science/r/moleculariq-benchmark-5A40/README.md)** | Dataset creation: task definitions, symbolic verifiers implementations, question generator| 
+| **moleculariq-eval** | Evaluation code: integration with lm-eval-harness, model configs, reward functions, extraction functions, and system prompts; please see supplementary material|
 
 ## 📄 License
 
